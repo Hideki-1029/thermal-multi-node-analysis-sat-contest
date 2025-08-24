@@ -99,8 +99,11 @@ def execute_analysis(config: Dict, log_file: str) -> bool:
     # コマンドライン引数の構築
     cmd = ['python', 'multi-node_analysis.py']
     
-    # モードに応じた引数の設定
-    cmd.extend(['--mode', config['mode']])
+    # モードに応じた引数の設定（orbit は earth と等価に扱う）
+    mode = str(config['mode']).lower()
+    if mode == 'orbit':
+        mode = 'earth'
+    cmd.extend(['--mode', mode])
     # 中心天体が指定されていれば明示的に渡す
     if 'body' in config and pd.notna(config.get('body')):
         cmd.extend(['--body', str(config['body'])])

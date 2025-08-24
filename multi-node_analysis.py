@@ -292,7 +292,7 @@ def copy_settings_files(output_dir: str):
 def main():
     # コマンドライン引数の解析
     parser = argparse.ArgumentParser(description='衛星の熱解析プログラム')
-    parser.add_argument('--mode', choices=['earth', 'deep_space'], default='earth',
+    parser.add_argument('--mode', choices=['earth', 'deep_space', 'orbit'], default='earth',
                       help='解析モード: earth (地球周回軌道) または deep_space (深宇宙)')
     parser.add_argument('--body', choices=['earth', 'moon'], help='中心天体（未指定時は設定ファイルの primary_body を使用）')
     parser.add_argument('--altitude', type=float, help='軌道高度 [km]')
@@ -314,7 +314,8 @@ def main():
     if args.body:
         os.environ['PRIMARY_BODY_OVERRIDE'] = args.body
     
-    if args.mode == 'earth':
+    # orbit は earth と等価に扱う
+    if args.mode in ['earth', 'orbit']:
         # 地球周回軌道解析
         altitude = args.altitude or load_constants()['orbit_parameters']['default_altitude']
         beta_angle = args.beta or load_constants()['orbit_parameters']['default_beta']
