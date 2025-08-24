@@ -9,6 +9,23 @@ def load_constants() -> dict:
     with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'settings', 'constants.yaml'), 'r', encoding='utf-8') as f:
         return yaml.safe_load(f)
 
+def _get_primary_body_params() -> Tuple[float, float, str]:
+    """
+    設定から中心天体の半径[km]と標準重力パラメータμ[km^3/s^2]を取得。
+    後方互換のため、未設定時は地球の値を既定にする。
+
+    Returns:
+        (radius_km, mu_km3_s2, body_name)
+    """
+    constants = load_constants()
+    env = constants.get('environment', {})
+    bodies = constants.get('bodies', {})
+    body_name = env.get('primary_body', 'earth')
+    body = bodies.get(body_name, {})
+    radius_km = float(body.get('radius_km', 6378.0))
+    mu_km3_s2 = float(body.get('mu_km3_s2', 3.986e5))
+    return radius_km, mu_km3_s2, body_name
+
 def calculate_orbit_parameters(altitude: float, beta_angle: float) -> Tuple[float, float, float, np.ndarray, np.ndarray, np.ndarray]:
     """
     軌道パラメータを計算
@@ -25,11 +42,10 @@ def calculate_orbit_parameters(altitude: float, beta_angle: float) -> Tuple[floa
         e1: 軌道面内の第1基底ベクトル
         e2: 軌道面内の第2基底ベクトル
     """
-    earth_radius = 6378.0  # 地球半径 [km]
-    mu = 3.986e5  # 地球の重力定数 [km^3/s^2]
+    body_radius, mu, _ = _get_primary_body_params()
     
     # 軌道周期の計算
-    a = earth_radius + altitude  # 軌道長半径 [km]
+    a = body_radius + altitude  # 軌道長半径 [km]
     period = 2 * np.pi * np.sqrt(a**3 / mu)  # 軌道周期 [秒]
     
     # ベータ角をラジアンに変換
@@ -52,24 +68,22 @@ def calculate_orbit_parameters(altitude: float, beta_angle: float) -> Tuple[floa
         e1 = e1 / np.linalg.norm(e1)
     e2 = np.cross(orbit_normal, e1)
     
-    # 蝕の割合の計算
-    # 円筒形の地球影モデルを使用
-    shadow_angle = np.arccos(earth_radius / a)
+    # 蝕の割合の計算（円筒影近似、中心天体半径を使用）
+    shadow_angle = np.arccos(body_radius / a)
     if abs(beta_rad) >= np.pi/2:
         eclipse_fraction = 0.0
     else:
         # 軌道面内での太陽方向と衛星位置の角度を計算
         cos_beta = np.cos(beta_rad)
-    # 蝕の割合の計算
-    # 円筒形の地球影モデルを使用
-    shadow_angle = np.arccos(earth_radius / a)
+    # 蝕の割合の計算（重複計算だが既存構成を保持）
+    shadow_angle = np.arccos(body_radius / a)
     if abs(beta_rad) >= np.pi/2:
         eclipse_fraction = 0.0
     else:
         # 軌道面内での太陽方向と衛星位置の角度を計算
         cos_beta = np.cos(beta_rad)
         # arccosの引数を[-1, 1]の範囲に制限
-        arg = np.clip(np.sqrt(1 - (earth_radius/a)**2) / cos_beta, -1.0, 1.0)
+        arg = np.clip(np.sqrt(1 - (body_radius/a)**2) / cos_beta, -1.0, 1.0)
         eclipse_fraction = np.arccos(arg) / np.pi
 
     return period, eclipse_fraction, beta_rad, orbit_normal, e1, e2
@@ -87,15 +101,15 @@ def calculate_earth_parameters(altitude: float, time: float, period: float) -> T
         earth_vector: 地球方向ベクトル
         view_factor: 地球のビューファクター
     """
-    earth_radius = 6378.0  # 地球半径 [km]
-    a = earth_radius + altitude  # 軌道長半径 [km]
+    body_radius, _, _ = _get_primary_body_params()
+    a = body_radius + altitude  # 軌道長半径 [km]
     
     # 地球方向ベクトルの計算
     theta = 2 * np.pi * time / period
     earth_vector = np.array([-np.cos(theta), 0, -np.sin(theta)])
     
     # ビューファクターの計算
-    view_factor = (earth_radius / a)**2
+    view_factor = (body_radius / a)**2
     
     return earth_vector, view_factor
 
@@ -108,9 +122,8 @@ def calculate_satellite_position(time: float, period: float, altitude: float,
         velocity: 衛星の速度ベクトル [km/s]
         in_eclipse: 蝕の状態（True: 蝕中）
     """
-    earth_radius = 6378.0  # 地球半径 [km]
-    mu = 3.986e5  # 地球の重力定数 [km^3/s^2]
-    orbit_radius = earth_radius + altitude
+    body_radius, mu, _ = _get_primary_body_params()
+    orbit_radius = body_radius + altitude
     theta = 2 * np.pi * time / period
     # 位置ベクトル
     r_vec = orbit_radius * (np.cos(theta) * e1 + np.sin(theta) * e2)
@@ -124,7 +137,8 @@ def calculate_satellite_position(time: float, period: float, altitude: float,
     r_dot_s = np.dot(r_vec, s_hat)
     perp = r_vec - r_dot_s * s_hat
     d_perp = np.linalg.norm(perp)
-    in_eclipse = (r_dot_s < 0) & (d_perp < earth_radius)
+    # 円筒影（中心天体）での食判定
+    in_eclipse = (r_dot_s < 0) & (d_perp < body_radius)
     return r_vec, v_vec, in_eclipse
 
 def calculate_satellite_attitude(position: np.ndarray, velocity: np.ndarray, 
@@ -264,7 +278,7 @@ def calculate_earth_ir_view_factor(earth_vector: np.ndarray, normal_vector: np.n
     Returns:
         view_factor: 地球赤外用のビューファクター
     """
-    earth_radius = 6378.0  # 地球半径 [km]
+    body_radius, _, _ = _get_primary_body_params()
     
     # 地球方向ベクトルを正規化
     earth_direction = earth_vector
@@ -272,13 +286,13 @@ def calculate_earth_ir_view_factor(earth_vector: np.ndarray, normal_vector: np.n
     # パラメータの計算
     lamda = np.arccos(np.clip(np.dot(earth_direction, normal_vector), -1.0, 1.0))
     h = altitude  # 高度 [km]
-    H = (earth_radius + h) / earth_radius
+    H = (body_radius + h) / body_radius
     phi_m = np.arcsin(1.0 / H)
     b = np.sqrt(H * H - 1.0)
     
     # ビューファクターの計算
     # ref) POWER INPUT TO A SMALL FLAT PLATE FROM A DIFFUSELY RADIATING SPHERE WITH APPLICATION TO EARTH SATELLITES: THE SPINNING PLATE
-    if h < 1732.0:  # 1732 km未満の場合
+    if h < 1732.0:  # 近距離近似（閾値は暫定、既存実装を踏襲）
         if lamda <= np.pi/2.0 - phi_m:
             view_factor = np.cos(lamda) / (H * H)
         elif lamda <= np.pi/2.0 + phi_m:
@@ -288,7 +302,7 @@ def calculate_earth_ir_view_factor(earth_vector: np.ndarray, normal_vector: np.n
                                                   b * np.sqrt(1.0 - (H * np.cos(lamda))**2)))
         else:
             view_factor = 0.0
-    else:  # 1732 km以上の場合
+    else:  # 遠距離近似
         if lamda < np.pi/2.0:
             # 立体角として考慮
             view_factor = 0.25 / (H * H)
@@ -311,7 +325,7 @@ def calculate_albedo_view_factor(earth_vector: np.ndarray, sun_vector: np.ndarra
     Returns:
         view_factor: アルベド用のビューファクター
     """
-    earth_radius = 6378.0  # 地球半径 [km]
+    body_radius, _, _ = _get_primary_body_params()
     
     # 地球方向ベクトルを正規化
     earth_direction = earth_vector
@@ -325,7 +339,7 @@ def calculate_albedo_view_factor(earth_vector: np.ndarray, sun_vector: np.ndarra
     cos_theta = np.dot(vec_a, vec_b)
     lamda = np.arccos(np.clip(np.dot(earth_direction, normal_vector), -1.0, 1.0))
     h = altitude  # 高度 [km]
-    H = (earth_radius + h) / earth_radius
+    H = (body_radius + h) / body_radius
     phi_m = np.arcsin(1.0 / H)
     b = np.sqrt(H * H - 1.0)
     

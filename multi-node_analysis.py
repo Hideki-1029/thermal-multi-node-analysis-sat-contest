@@ -294,6 +294,7 @@ def main():
     parser = argparse.ArgumentParser(description='衛星の熱解析プログラム')
     parser.add_argument('--mode', choices=['earth', 'deep_space'], default='earth',
                       help='解析モード: earth (地球周回軌道) または deep_space (深宇宙)')
+    parser.add_argument('--body', choices=['earth', 'moon'], help='中心天体（未指定時は設定ファイルの primary_body を使用）')
     parser.add_argument('--altitude', type=float, help='軌道高度 [km]')
     parser.add_argument('--beta', type=float, help='ベータ角 [度]')
     parser.add_argument('--output_dir', type=str, default='output',
@@ -309,6 +310,9 @@ def main():
 
     # 衛星の設定を読み込み
     config = SatelliteConfiguration.from_config_files()
+    # --body 指定がある場合は環境変数で一時上書き
+    if args.body:
+        os.environ['PRIMARY_BODY_OVERRIDE'] = args.body
     
     if args.mode == 'earth':
         # 地球周回軌道解析
@@ -325,8 +329,9 @@ def main():
         if args.mode == 'earth' and args.duration is not None and 'num_orbits' in vars(args) and args.num_orbits != 1:
             duration = period * args.num_orbits
         
-        # 出力ディレクトリの作成（高度とベータ角を含む）
-        output_subdir = f"earth_orbit_alt{altitude:.1f}_beta{beta_angle:.1f}"
+        # 出力ディレクトリの作成（中心天体名・高度・ベータ角を含む）
+        body_name = os.environ.get('PRIMARY_BODY_OVERRIDE') or load_constants().get('environment',{}).get('primary_body','earth')
+        output_subdir = f"{body_name}_orbit_alt{altitude:.1f}_beta{beta_angle:.1f}"
         output_path = os.path.join(args.output_dir, output_subdir)
         os.makedirs(output_path, exist_ok=True)
         # 設定ファイルのコピー

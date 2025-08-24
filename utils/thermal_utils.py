@@ -104,12 +104,12 @@ class Surface:
         albedo_heat = 0.0
         earth_ir_heat = 0.0
         
-        # 地球赤外は等方的な放射なので、面の向きに関係なく計算
+        # 惑星赤外は等方的な放射なので、面の向きに関係なく計算（中心天体を想定）
         for optical_props, ratio in self.optical_properties.outside:
             ir_view_factor = calculate_earth_ir_view_factor(earth_vector, self.normal, altitude)
             earth_ir_heat += earth_ir * self.area * optical_props.epsilon * ir_view_factor * ratio
         
-        # アルベドは太陽光の反射なので、新しいビューファクター計算を使用
+        # アルベドは太陽光の反射（中心天体由来）
         for optical_props, ratio in self.optical_properties.outside:
             albedo_view_factor = calculate_albedo_view_factor(earth_vector, sun_vector, self.normal, altitude, orbit_normal)
             albedo_heat += solar_constant * earth_albedo * self.area * optical_props.alpha * albedo_view_factor * ratio
@@ -412,10 +412,16 @@ class ThermalNode:
         constants = load_constants()
         solar_constant = constants['physical_constants']['solar_constant']
         stefan_boltzmann = constants['physical_constants']['stefan_boltzmann']
-        earth_albedo = constants['physical_constants']['earth_albedo']
-        earth_ir = constants['physical_constants']['earth_ir']
-        enable_albedo = constants['physical_constants']['enable_albedo']
-        enable_earth_ir = constants['physical_constants']['enable_earth_ir']
+        enable_albedo = constants['physical_constants'].get('enable_albedo', True)
+        # 中心天体（primary body）を参照
+        env = constants.get('environment', {})
+        bodies = constants.get('bodies', {})
+        primary = env.get('primary_body', 'earth')
+        body_cfg = bodies.get(primary, {})
+        # 新キー優先、旧キーはフォールバック
+        planet_albedo = body_cfg.get('albedo', constants['physical_constants'].get('earth_albedo', 0.3))
+        planet_ir = body_cfg.get('planet_ir_w_m2', constants['physical_constants'].get('earth_ir', 221.0))
+        enable_planet_ir = constants['physical_constants'].get('enable_planet_ir', constants['physical_constants'].get('enable_earth_ir', True))
         
         # パネル間輻射（Rij法、宇宙放射含む）を一度だけ計算
         interpanel_radiation = self.calculate_interpanel_radiation(stefan_boltzmann)
@@ -432,9 +438,9 @@ class ThermalNode:
                 solar_heat = surface.calculate_solar_heat(sun_vector, solar_constant, in_eclipse)
                 albedo_heat = 0.0
                 earth_ir_heat = 0.0
-                if earth_vector is not None and (enable_albedo or enable_earth_ir):
+                if earth_vector is not None and (enable_albedo or enable_planet_ir):
                     albedo_heat, earth_ir_heat = surface.calculate_earth_heat(
-                        earth_vector, solar_constant, earth_albedo, earth_ir,
+                        earth_vector, solar_constant, planet_albedo, planet_ir,
                         altitude, sun_vector, orbit_normal
                     )
                 
@@ -442,7 +448,7 @@ class ThermalNode:
                 mli_heat_input = solar_heat
                 if enable_albedo:
                     mli_heat_input += albedo_heat
-                if enable_earth_ir:
+                if enable_planet_ir:
                     mli_heat_input += earth_ir_heat
                 
                 # MLIと宇宙との輻射熱交換を計算（通常の放射率を使用）
@@ -473,9 +479,9 @@ class ThermalNode:
                 solar_heat = surface.calculate_solar_heat(sun_vector, solar_constant, in_eclipse)
                 albedo_heat = 0.0
                 earth_ir_heat = 0.0
-                if earth_vector is not None and (enable_albedo or enable_earth_ir):
+                if earth_vector is not None and (enable_albedo or enable_planet_ir):
                     albedo_heat, earth_ir_heat = surface.calculate_earth_heat(
-                        earth_vector, solar_constant, earth_albedo, earth_ir,
+                        earth_vector, solar_constant, planet_albedo, planet_ir,
                         altitude, sun_vector, orbit_normal
                     )
                 
@@ -483,7 +489,7 @@ class ThermalNode:
                 heat_balances[surface_name] = (
                     solar_heat +
                     (albedo_heat if enable_albedo else 0.0) +
-                    (earth_ir_heat if enable_earth_ir else 0.0) +
+                    (earth_ir_heat if enable_planet_ir else 0.0) +
                     self.internal_heat.get(surface_name, 0.0)
                 )
             
@@ -504,7 +510,7 @@ class ThermalNode:
                 surface_name=surface_name,
                 solar_heat=solar_heat,
                 albedo_heat=albedo_heat if enable_albedo else 0.0,
-                earth_ir_heat=earth_ir_heat if enable_earth_ir else 0.0,
+                earth_ir_heat=earth_ir_heat if enable_planet_ir else 0.0,
                 interpanel_radiation=interpanel_radiation.get(surface_name, 0.0),
                 conductance_heat=conductance_heat.get(surface_name, 0.0),
                 total_heat=heat_balances[surface_name],

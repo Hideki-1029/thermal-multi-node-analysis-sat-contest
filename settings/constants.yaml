@@ -12,7 +12,7 @@ physical_constants:
 
 # 解析対象の中心天体設定（新）
 environment:
-  primary_body: earth  # earth | moon
+  primary_body: moon  # earth | moon
 
 # 天体カタログ（新）
 bodies:

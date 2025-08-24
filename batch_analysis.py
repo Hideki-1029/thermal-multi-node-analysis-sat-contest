@@ -16,6 +16,7 @@ def create_analysis_config_template(output_file: str = 'analysis_config_template
     """
     template_df = pd.DataFrame({
         'mode': ['earth'],  # earth または deep_space
+        'body': [None],     # 中心天体（earth | moon）未指定なら設定のprimary_body
         'altitude': [500.0],  # 地球周回軌道の場合のみ使用 [km]
         'beta': [60.0],  # 地球周回軌道の場合のみ使用 [度]
         'sun_x': [None],  # 深宇宙の場合のみ使用
@@ -100,6 +101,9 @@ def execute_analysis(config: Dict, log_file: str) -> bool:
     
     # モードに応じた引数の設定
     cmd.extend(['--mode', config['mode']])
+    # 中心天体が指定されていれば明示的に渡す
+    if 'body' in config and pd.notna(config.get('body')):
+        cmd.extend(['--body', str(config['body'])])
     
     if config['mode'] == 'earth':
         cmd.extend(['--altitude', str(config['altitude'])])

@@ -216,6 +216,15 @@ python multi-node_analysis.py --mode deep_space --sun_x 1 --sun_y 0 --sun_z 0
 
 ---
 
+## 11. README.md に使い方追記
+
+最低限，現状は「mode=earth/deep_space」で軌道シミュレーションか深宇宙かを切り分け、「body=earth/moon」で中心天体を選ぶ構成であることを説明したい．
+
+---
+
 以上で、月周回熱解析を可能とする中心天体一般化の実装計画と作業手順を示しました。まずは設定の一般化と `orbit_utils.py` の置換から始め、段階的に関数名・引数名の一般化と参照更新を進めると、安全に移行できます。
+
+
+
 
 

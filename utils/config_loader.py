@@ -8,7 +8,13 @@ from .dataclasses import SurfaceMaterial, MaterialProperties, ComponentPropertie
 def load_constants() -> dict:
     """定数ファイルを読み込む"""
     with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'settings', 'constants.yaml'), 'r', encoding='utf-8') as f:
-        return yaml.safe_load(f)
+        data = yaml.safe_load(f)
+    # 環境変数による中心天体の一時上書きに対応
+    override = os.environ.get('PRIMARY_BODY_OVERRIDE')
+    if override:
+        env = data.setdefault('environment', {})
+        env['primary_body'] = override
+    return data
 
 def load_surface_properties() -> Tuple[Dict[str, SurfaceMaterial], Dict[str, List[Dict[str, float]]]]:
     """表面光学特性を読み込む"""
