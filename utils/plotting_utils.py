@@ -190,6 +190,10 @@ def plot_heat_balance(heat_input_records: List[HeatInputRecord], output_dir: str
 def plot_heat_input_by_surface(heat_input_records: List[HeatInputRecord], output_dir: str):
     """Plot and save heat input by surface"""
     surface_names = sorted(set(record.surface_name for record in heat_input_records))
+    # Body-aware labeling for IR
+    constants = load_constants()
+    body_name = constants.get('environment', {}).get('primary_body', 'earth')
+    ir_label = f"{body_name.capitalize()} IR Heat"
     
     for surface_name in surface_names:
         surface_records = [r for r in heat_input_records if r.surface_name == surface_name]
@@ -200,8 +204,8 @@ def plot_heat_input_by_surface(heat_input_records: List[HeatInputRecord], output
         plt.plot(times, [r.solar_heat for r in surface_records], label='Solar Heat', color='red', linestyle='-')
         # Albedo Heat: orange
         plt.plot(times, [r.albedo_heat for r in surface_records], label='Albedo Heat', color='orange', linestyle='-')
-        # Earth IR Heat: green
-        plt.plot(times, [r.earth_ir_heat for r in surface_records], label='Earth IR Heat', color='green', linestyle='-')
+        # Planet IR Heat: green (body-aware)
+        plt.plot(times, [r.earth_ir_heat for r in surface_records], label=ir_label, color='green', linestyle='-')
         # Interpanel Radiation: cyan
         plt.plot(times, [r.interpanel_radiation for r in surface_records], label='Interpanel Radiation', color='cyan', linestyle='-')
         # Internal Heat: purple dashed

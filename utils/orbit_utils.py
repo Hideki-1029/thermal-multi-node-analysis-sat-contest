@@ -2,13 +2,13 @@ import numpy as np
 from typing import Tuple, List, Dict, Union
 import yaml
 import os
+from .config_loader import load_constants as _shared_load_constants
 import math
 from functools import lru_cache
 
 def load_constants() -> dict:
-    """定数ファイルを読み込む"""
-    with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'settings', 'constants.yaml'), 'r', encoding='utf-8') as f:
-        return yaml.safe_load(f)
+    """config_loader 経由で定数を読み込む（PRIMARY_BODY_OVERRIDE を反映）。"""
+    return _shared_load_constants()
 
 @lru_cache(maxsize=1)
 def _get_primary_body_params() -> Tuple[float, float, str]:
