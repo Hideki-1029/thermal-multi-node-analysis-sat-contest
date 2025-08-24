@@ -3,12 +3,14 @@ from typing import Tuple, List, Dict, Union
 import yaml
 import os
 import math
+from functools import lru_cache
 
 def load_constants() -> dict:
     """定数ファイルを読み込む"""
     with open(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'settings', 'constants.yaml'), 'r', encoding='utf-8') as f:
         return yaml.safe_load(f)
 
+@lru_cache(maxsize=1)
 def _get_primary_body_params() -> Tuple[float, float, str]:
     """
     設定から中心天体の半径[km]と標準重力パラメータμ[km^3/s^2]を取得。
