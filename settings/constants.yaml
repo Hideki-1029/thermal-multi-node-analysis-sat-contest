@@ -8,6 +8,24 @@ physical_constants:
   stefan_boltzmann: 5.67e-8  # ステファン・ボルツマン定数 [W/m^2/K^4]
   enable_albedo: true    # アルベド熱の計算を有効にするかどうか
   enable_earth_ir: true  # 地球赤外熱の計算を有効にするかどうか
+  enable_planet_ir: true  # 惑星赤外熱の計算を有効にするかどうか（新）
+
+# 解析対象の中心天体設定（新）
+environment:
+  primary_body: earth  # earth | moon
+
+# 天体カタログ（新）
+bodies:
+  earth:
+    radius_km: 6378.137
+    mu_km3_s2: 398600.4418
+    albedo: 0.30
+    planet_ir_w_m2: 221.0
+  moon:
+    radius_km: 1737.4
+    mu_km3_s2: 4902.800066
+    albedo: 0.12
+    planet_ir_w_m2: 52.0
 
 # 衛星寸法 [mm]
 satellite_dimensions:
