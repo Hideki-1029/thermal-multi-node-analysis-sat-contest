@@ -306,6 +306,8 @@ def main():
     parser.add_argument('--duration', type=float, help='解析時間 [秒]（指定しない場合は地球周回は1軌道×num_orbits、深宇宙は6000秒）')
     parser.add_argument('--temp-grid-interval', type=float, default=10.0,
                       help='温度プロファイルの等温線の間隔 [°C] (デフォルト: 10.0)')
+    parser.add_argument('--plot-components', type=str, nargs='*',
+                      help='temperature_components.png に表示するコンポーネント名のリスト（例: BAT RW XTRP）')
     args = parser.parse_args()
 
     # 衛星の設定を読み込み
@@ -355,7 +357,11 @@ def main():
         node_for_vf.save_rij_matrix(output_path)
         
         # 結果のプロットと保存
-        plot_temperature_profile(times, temperatures, output_path, eclipse_flags, temp_grid_interval=args.temp_grid_interval)
+        plot_temperature_profile(
+            times, temperatures, output_path,
+            eclipse_flags, temp_grid_interval=args.temp_grid_interval,
+            selected_components=args.plot_components
+        )
         save_temperature_data(times, temperatures, output_path)
         plot_heat_balance(heat_input_records, output_path)
         plot_heat_input_by_surface(heat_input_records, output_path)
@@ -398,7 +404,11 @@ def main():
         # RijマトリクスもCSV出力
         node_for_vf.save_rij_matrix(output_path)
         # 結果のプロットと保存（地球周回と同じ関数を使う）
-        plot_temperature_profile(times, temperatures, output_path, eclipse_flags, temp_grid_interval=args.temp_grid_interval)
+        plot_temperature_profile(
+            times, temperatures, output_path,
+            eclipse_flags, temp_grid_interval=args.temp_grid_interval,
+            selected_components=args.plot_components
+        )
         save_temperature_data(times, temperatures, output_path)
         plot_heat_balance(heat_input_records, output_path)
         plot_heat_input_by_surface(heat_input_records, output_path)

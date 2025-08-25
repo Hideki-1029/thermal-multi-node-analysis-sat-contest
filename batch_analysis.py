@@ -23,6 +23,7 @@ def create_analysis_config_template(output_file: str = 'analysis_config_template
         'duration': [40010.0],  # 解析時間 [秒]
         'num_orbits': [None],  # 周回数（指定時はdurationより優先）
         'temp_grid_interval': [5.0],  # 温度データの出力間隔 [秒]
+        'plot_components': [None],  # 表示するコンポ（空白/未指定で全て）。スペース区切りで列挙
         'output_dir': ['output']  # 出力ディレクトリ
     })
     template_df.to_csv(output_file, index=False)
@@ -138,6 +139,12 @@ def execute_analysis(config: Dict, log_file: str) -> bool:
     
     cmd.extend(['--temp-grid-interval', str(config['temp_grid_interval'])])
     cmd.extend(['--output_dir', config['output_dir']])
+
+    # プロット対象コンポーネント（スペース区切りで列挙）
+    plot_components = config.get('plot_components')
+    if isinstance(plot_components, str) and plot_components.strip():
+        names = plot_components.split()
+        cmd.extend(['--plot-components', *names])
     
     try:
         # 解析の実行
