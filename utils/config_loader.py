@@ -108,13 +108,19 @@ def load_component_properties() -> Dict[str, ComponentProperties]:
         mounting_dict = props['mounting']
         target = mounting_dict.get('target') or mounting_dict.get('panel')
         internal_q = props.get('internal_heat', 0.0)
+        heater_q = props.get('heater_heat', 0.0)
+        heater_mode = str(props.get('heater_mode', 'only_eclipse')).lower()
+        if heater_mode not in ("all", "only_eclipse"):
+            raise ValueError(f"コンポーネント {name} の heater_mode は 'all' か 'only_eclipse' を指定してください: {heater_mode}")
         component_properties[name] = ComponentProperties(
             name=props['name'],
             mass=props['mass'],
             specific_heat=props['specific_heat'],
             mounting_target=target,
             thermal_conductance=mounting_dict['thermal_conductance'],
-            internal_heat=internal_q
+            internal_heat=internal_q,
+            heater_heat=heater_q,
+            heater_mode=heater_mode
         )
     
     return component_properties 

@@ -58,6 +58,8 @@ class ComponentProperties:
     mounting_target: str  # 取付相手（パネル名 or コンポ名）
     thermal_conductance: float  # 取付部の熱コンダクタンス [W/K]
     internal_heat: float = 0.0  # 内部発熱 [W]
+    heater_heat: float = 0.0  # ヒータ発熱 [W]
+    heater_mode: str = "only_eclipse"  # ヒータ動作モード: "all" | "only_eclipse"
 
     # --- backward compatibility -------------------------------------------------
     @property
