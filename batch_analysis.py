@@ -15,7 +15,7 @@ def create_analysis_config_template(output_file: str = 'analysis_config_template
         output_file (str): 出力ファイルのパス
     """
     template_df = pd.DataFrame({
-        'mode': ['earth'],  # earth または deep_space
+        'mode': ['orbit'],  # orbit または deep_space（orbit は周回軌道解析）
         'body': [None],     # 中心天体（earth | moon）未指定なら設定のprimary_body
         'altitude': [500.0],  # 地球周回軌道の場合のみ使用 [km]
         'beta': [60.0],  # 地球周回軌道の場合のみ使用 [度]
@@ -69,8 +69,9 @@ def write_analysis_log(log_file: str, config: Dict, status: str, error_msg: str 
     
     with open(log_file, 'a', encoding='utf-8') as f:
         f.write(f'\n=== 解析実行時刻: {timestamp} ===\n')
-        f.write(f'モード: {config["mode"]}\n')
-        if config["mode"] == "earth":
+        mode_str = str(config["mode"]).lower()
+        f.write(f'モード: {mode_str}\n')
+        if mode_str in ("earth", "orbit"):
             f.write(f'軌道高度: {config["altitude"]} km\n')
             f.write(f'ベータ角: {config["beta"]} 度\n')
         else:
