@@ -23,7 +23,14 @@ PANEL_COLORS = {
     'MZ': '#FF1493'   # ピンク
 }
 
-def plot_temperature_profile(times: List[float], temperatures: Dict[str, List[float]], output_dir: str, eclipse_flags: Optional[List[bool]] = None, temp_grid_interval: float = 5.0):
+def plot_temperature_profile(
+    times: List[float],
+    temperatures: Dict[str, List[float]],
+    output_dir: str,
+    eclipse_flags: Optional[List[bool]] = None,
+    temp_grid_interval: float = 5.0,
+    selected_components: Optional[List[str]] = None,
+):
     """Plot and save temperature history
     eclipse_flags: 各時刻で蝕中かどうかのリスト（Trueならグレー背景）
     MLIノードの温度はグラフには表示しない
@@ -51,6 +58,12 @@ def plot_temperature_profile(times: List[float], temperatures: Dict[str, List[fl
             panel_temps[name] = temp_history
         else:
             component_temps[name] = temp_history
+
+    # ユーザが表示したいコンポーネントを指定した場合はフィルタ
+    filtered_component_temps = component_temps
+    if selected_components:
+        selected_set = set(selected_components)
+        filtered_component_temps = {k: v for k, v in component_temps.items() if k in selected_set}
     
     # コンポーネントの色を動的に割り当てる関数
     def get_component_colors(component_names: List[str]) -> Dict[str, str]:
@@ -138,10 +151,11 @@ def plot_temperature_profile(times: List[float], temperatures: Dict[str, List[fl
         plot_temperature_subplot(panel_temps, 'Temperature History of Satellite Panels', 'temperature_panel.png')
     
     # コンポーネント温度のプロット
-    if component_temps:
-        plot_temperature_subplot(component_temps, 'Temperature History of Components', 'temperature_components.png')
+    if filtered_component_temps:
+        plot_temperature_subplot(filtered_component_temps, 'Temperature History of Components', 'temperature_components.png')
     
     # 全温度のプロット
+    # "All" は常に全て（パネル + 全コンポーネント）を表示
     all_temps = {**panel_temps, **component_temps}
     if all_temps:
         plot_temperature_subplot(all_temps, 'Temperature History of All Elements', 'temperature_all.png')

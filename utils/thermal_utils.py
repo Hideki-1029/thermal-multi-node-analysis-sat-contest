@@ -321,6 +321,9 @@ class ThermalNode:
         self.component_temperatures: Dict[str, float] = {}
         # コンポーネント間の伝導リンク（comp_name -> (target_name, C[W/K]))
         self.component_links: Dict[str, tuple] = {}
+        # 電源モード情報
+        self.power_modes: Dict[str, Dict[str, bool]] = {}
+        self.power_mode_name: str = 'nominal'
 
     def add_surface(self, surface: Surface):
         """面を追加し、初期温度を設定"""
@@ -547,8 +550,16 @@ class ThermalNode:
                 component_heat_balances[target] -= heat  # 作用反作用
                 processed_pairs.add(pair)
             
-            # --- 内部発熱を加算 ---
-            component_heat_balances[comp_name] += component.internal_heat
+            # --- 内部発熱 + ヒータ熱を加算 ---
+            include_internal = True
+            if self.power_modes and self.power_mode_name:
+                include_internal = self.power_modes.get(comp_name, {}).get(self.power_mode_name, True)
+            if include_internal:
+                component_heat_balances[comp_name] += component.internal_heat
+            # ヒータ動作モード: all -> 常に加算, only_eclipse -> 蝕の間のみ加算
+            if component.heater_heat and component.heater_heat != 0.0:
+                if component.heater_mode == 'all' or (component.heater_mode == 'only_eclipse' and in_eclipse):
+                    component_heat_balances[comp_name] += component.heater_heat
         
         # コンポーネントの熱収支を追加
         heat_balances.update(component_heat_balances)

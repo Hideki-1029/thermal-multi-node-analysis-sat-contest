@@ -20,6 +20,7 @@ from utils.plotting_utils import (
     plot_temperature_profile, save_temperature_data, plot_heat_balance,
     save_heat_input_data, plot_heat_input_by_surface, plot_orbit_visualization
 )
+from utils.config_loader import load_power_modes
 
 def create_satellite_surfaces(config: SatelliteConfiguration) -> List[Surface]:
     """衛星の各面を作成"""
@@ -81,8 +82,14 @@ def create_satellite_surfaces(config: SatelliteConfiguration) -> List[Surface]:
     
     return surfaces
 
-def run_earth_orbit_analysis(config: SatelliteConfiguration, altitude: float, 
-                           beta_angle: float, duration: float = None) -> Tuple[List[float], Dict[str, List[float]], List[HeatInputRecord], List[bool]]:
+def run_earth_orbit_analysis(
+    config: SatelliteConfiguration,
+    altitude: float,
+    beta_angle: float,
+    duration: float = None,
+    power_modes: Optional[Dict[str, Dict[str, bool]]] = None,
+    power_mode_name: Optional[str] = None,
+) -> Tuple[List[float], Dict[str, List[float]], List[HeatInputRecord], List[bool]]:
     """
     地球周回軌道での熱解析を実行
     
@@ -116,6 +123,10 @@ def run_earth_orbit_analysis(config: SatelliteConfiguration, altitude: float,
     node = ThermalNode(
         initial_temp=load_constants()['analysis_parameters']['initial_temperature']
     )
+    if power_modes is not None:
+        node.power_modes = power_modes
+    if power_mode_name is not None:
+        node.power_mode_name = power_mode_name
     
     # 面の追加と内部発熱の設定
     for surface in create_satellite_surfaces(config):
@@ -197,8 +208,13 @@ def run_earth_orbit_analysis(config: SatelliteConfiguration, altitude: float,
     
     return times.tolist(), temperatures, node.heat_input_records, eclipse_flags
 
-def run_deep_space_analysis(config: SatelliteConfiguration, 
-                          sun_vector: np.ndarray, duration: float = None) -> Tuple[List[float], Dict[str, List[float]], List[HeatInputRecord], List[bool]]:
+def run_deep_space_analysis(
+    config: SatelliteConfiguration,
+    sun_vector: np.ndarray,
+    duration: float = None,
+    power_modes: Optional[Dict[str, Dict[str, bool]]] = None,
+    power_mode_name: Optional[str] = None,
+) -> Tuple[List[float], Dict[str, List[float]], List[HeatInputRecord], List[bool]]:
     """
     深宇宙探査機の非定常熱解析を実行
     
@@ -223,6 +239,10 @@ def run_deep_space_analysis(config: SatelliteConfiguration,
     node = ThermalNode(
         initial_temp=load_constants()['analysis_parameters']['initial_temperature']
     )
+    if power_modes is not None:
+        node.power_modes = power_modes
+    if power_mode_name is not None:
+        node.power_mode_name = power_mode_name
     # 面の追加と内部発熱の設定
     for surface in create_satellite_surfaces(config):
         node.add_surface(surface)
@@ -306,10 +326,16 @@ def main():
     parser.add_argument('--duration', type=float, help='解析時間 [秒]（指定しない場合は地球周回は1軌道×num_orbits、深宇宙は6000秒）')
     parser.add_argument('--temp-grid-interval', type=float, default=10.0,
                       help='温度プロファイルの等温線の間隔 [°C] (デフォルト: 10.0)')
+    parser.add_argument('--plot-components', type=str, nargs='*',
+                      help='temperature_components.png に表示するコンポーネント名のリスト（例: BAT RW XTRP）')
+    parser.add_argument('--power-mode', type=str, default='nominal',
+                      help='power_modes.csv で定義した電源モード名（デフォルト: nominal）')
     args = parser.parse_args()
 
     # 衛星の設定を読み込み
     config = SatelliteConfiguration.from_config_files()
+    # 電源モードを読み込み
+    power_modes = load_power_modes()
     # --body 指定がある場合は環境変数で一時上書き
     if args.body:
         os.environ['PRIMARY_BODY_OVERRIDE'] = args.body
@@ -337,13 +363,21 @@ def main():
         os.makedirs(output_path, exist_ok=True)
         # 設定ファイルのコピー
         copy_settings_files(output_path)
+        # 電源モード適用（存在すれば）
+        if power_modes:
+            # ThermalNodeは run_earth_orbit_analysis 内部で生成されるため、
+            # ここでは後でプロット前にモード名を可視化にのみ反映
+            pass
         
         times, temperatures, heat_input_records, eclipse_flags = run_earth_orbit_analysis(
             config=config,
             altitude=altitude,
             beta_angle=beta_angle,
-            duration=duration
+            duration=duration,
+            power_modes=power_modes,
+            power_mode_name=args.power_mode
         )
+        # 電源モードに応じた成分名を図タイトルに付記
         
         # ビューファクター行列（Rij）をCSV出力
         node_for_vf = ThermalNode(initial_temp=load_constants()['analysis_parameters']['initial_temperature'])
@@ -355,7 +389,11 @@ def main():
         node_for_vf.save_rij_matrix(output_path)
         
         # 結果のプロットと保存
-        plot_temperature_profile(times, temperatures, output_path, eclipse_flags, temp_grid_interval=args.temp_grid_interval)
+        plot_temperature_profile(
+            times, temperatures, output_path,
+            eclipse_flags, temp_grid_interval=args.temp_grid_interval,
+            selected_components=args.plot_components
+        )
         save_temperature_data(times, temperatures, output_path)
         plot_heat_balance(heat_input_records, output_path)
         plot_heat_input_by_surface(heat_input_records, output_path)
@@ -387,7 +425,9 @@ def main():
         times, temperatures, heat_input_records, eclipse_flags = run_deep_space_analysis(
             config=config,
             sun_vector=sun_vector_normalized,  # 正規化したベクトルを使用
-            duration=duration
+            duration=duration,
+            power_modes=power_modes,
+            power_mode_name=args.power_mode
         )
         # ビューファクター行列（Rij）をCSV出力
         node_for_vf = ThermalNode(initial_temp=load_constants()['analysis_parameters']['initial_temperature'])
@@ -398,7 +438,11 @@ def main():
         # RijマトリクスもCSV出力
         node_for_vf.save_rij_matrix(output_path)
         # 結果のプロットと保存（地球周回と同じ関数を使う）
-        plot_temperature_profile(times, temperatures, output_path, eclipse_flags, temp_grid_interval=args.temp_grid_interval)
+        plot_temperature_profile(
+            times, temperatures, output_path,
+            eclipse_flags, temp_grid_interval=args.temp_grid_interval,
+            selected_components=args.plot_components
+        )
         save_temperature_data(times, temperatures, output_path)
         plot_heat_balance(heat_input_records, output_path)
         plot_heat_input_by_surface(heat_input_records, output_path)
