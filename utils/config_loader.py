@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from typing import Dict, List, Tuple
 from .dataclasses import SurfaceMaterial, MaterialProperties, ComponentProperties
+import csv
 
 def load_constants() -> dict:
     """定数ファイルを読み込む"""
@@ -124,3 +125,28 @@ def load_component_properties() -> Dict[str, ComponentProperties]:
         )
     
     return component_properties 
+
+def load_power_modes() -> Dict[str, Dict[str, bool]]:
+    """電源モードCSV(settings/power_modes.csv)を読み込み
+
+    Returns:
+        Dict[component][mode] -> bool(ON=True/OFF=False)
+    """
+    file_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'settings', 'power_modes.csv')
+    if not os.path.exists(file_path):
+        # ファイルが無い場合は空の辞書を返す（全てON相当の挙動）
+        return {}
+    modes: Dict[str, Dict[str, bool]] = {}
+    with open(file_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        # フォーマット: component, nominal, X_down, ...（列追加許容）
+        for row in reader:
+            comp = row['component']
+            comp_modes: Dict[str, bool] = {}
+            for key, val in row.items():
+                if key == 'component' or key is None:
+                    continue
+                state = (str(val).strip().upper() == 'ON')
+                comp_modes[key] = state
+            modes[comp] = comp_modes
+    return modes

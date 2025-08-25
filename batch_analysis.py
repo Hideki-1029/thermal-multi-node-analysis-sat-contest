@@ -24,6 +24,7 @@ def create_analysis_config_template(output_file: str = 'analysis_config_template
         'num_orbits': [None],  # 周回数（指定時はdurationより優先）
         'temp_grid_interval': [5.0],  # 温度データの出力間隔 [秒]
         'plot_components': [None],  # 表示するコンポ（空白/未指定で全て）。スペース区切りで列挙
+        'power_mode': ['nominal'],  # 電源モード（settings/power_modes.csv の列名）
         'output_dir': ['output']  # 出力ディレクトリ
     })
     template_df.to_csv(output_file, index=False)
@@ -145,6 +146,10 @@ def execute_analysis(config: Dict, log_file: str) -> bool:
     if isinstance(plot_components, str) and plot_components.strip():
         names = plot_components.split()
         cmd.extend(['--plot-components', *names])
+
+    # 電源モード
+    if isinstance(config.get('power_mode'), str) and config.get('power_mode').strip():
+        cmd.extend(['--power-mode', config['power_mode'].strip()])
     
     try:
         # 解析の実行
