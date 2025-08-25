@@ -1,11 +1,9 @@
 import pandas as pd
 import os
 import argparse
-from pathlib import Path
 import subprocess
 from datetime import datetime
 from typing import List, Dict
-import yaml
 
 def create_analysis_config_template(output_file: str = 'analysis_config_template.csv'):
     """
@@ -102,17 +100,32 @@ def execute_analysis(config: Dict, log_file: str) -> bool:
     
     # モードに応じた引数の設定（orbit は earth と等価に扱う）
     mode = str(config['mode']).lower()
+    # 入力検証
+    if mode not in ('orbit', 'earth', 'deep_space'):
+        write_analysis_log(log_file, config, 'error', f"不明なmodeが指定されました: {config['mode']}")
+        print(f"エラー: 不明なmodeが指定されました: {config['mode']}")
+        return False
     if mode == 'orbit':
         mode = 'earth'
     cmd.extend(['--mode', mode])
     # 中心天体が指定されていれば明示的に渡す
     if 'body' in config and pd.notna(config.get('body')):
         cmd.extend(['--body', str(config['body'])])
-    
-    if config['mode'] == 'earth':
-        cmd.extend(['--altitude', str(config['altitude'])])
-        cmd.extend(['--beta', str(config['beta'])])
-    else:  # deep_space
+
+    # 正規化後の mode に基づいて引数を付与
+    if mode == 'earth':
+        # CSVで値が指定されている場合のみ付与（未指定なら multi-node 側のデフォルトに委ねる）
+        if pd.notna(config.get('altitude')):
+            cmd.extend(['--altitude', str(config['altitude'])])
+        if pd.notna(config.get('beta')):
+            cmd.extend(['--beta', str(config['beta'])])
+    elif mode == 'deep_space':
+        # 深宇宙は sun ベクトルが必須
+        sun_vals = (config.get('sun_x'), config.get('sun_y'), config.get('sun_z'))
+        if not all(pd.notna(v) for v in sun_vals):
+            write_analysis_log(log_file, config, 'error', 'deep_spaceでは sun_x, sun_y, sun_z を全て指定してください')
+            print('エラー: deep_spaceでは sun_x, sun_y, sun_z を全て指定してください')
+            return False
         cmd.extend(['--sun_x', str(config['sun_x'])])
         cmd.extend(['--sun_y', str(config['sun_y'])])
         cmd.extend(['--sun_z', str(config['sun_z'])])
