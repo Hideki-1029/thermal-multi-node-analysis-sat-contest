@@ -10,7 +10,7 @@ component_properties:
     specific_heat: 700.0  # 比熱 [J/kg/K]
     internal_heat: 0.0  # 内部発熱量 [W]
     heater_heat: 3.0
-    heater_mode: "only_eclipse"  # "only_eclipse" or "all"
+    heater_mode: "all"  # "only_eclipse" or "all"
     mounting:
       #panel: "PZ"  # +Z面に取り付け。一応"panel: "PZ""でもOKだが"target"推奨。
       target: "PZ"
