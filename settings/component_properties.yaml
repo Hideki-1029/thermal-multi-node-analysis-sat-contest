@@ -9,7 +9,7 @@ component_properties:
     mass: 0.56  # 質量 [kg]
     specific_heat: 700.0  # 比熱 [J/kg/K]
     internal_heat: 0.0  # 内部発熱量 [W]
-    heater_heat: 3.0
+    heater_heat: 0.0
     heater_mode: "only_eclipse"  # "only_eclipse" or "all"
     mounting:
       target: "PY"
@@ -20,6 +20,8 @@ component_properties:
     mass: 0.575
     specific_heat: 900.0
     internal_heat: 6.0
+    heater_heat: 0.0
+    heater_mode: "only_eclipse"  # "only_eclipse" or "all"
     mounting:
       target: "PZ"
       thermal_conductance: 1.0

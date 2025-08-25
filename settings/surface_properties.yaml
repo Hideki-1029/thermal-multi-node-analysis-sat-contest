@@ -69,33 +69,33 @@ surface_materials:
   # スプシで計算した各パネルの平均α，平均εを入れる
   PX_average:
     name: "PX_average"
-    alpha: 0.10
-    epsilon: 0.80
+    alpha: 0.17
+    epsilon: 0.19
     description: "PX面の平均α，平均ε"
   MX_average:
     name: "MX_average"
-    alpha: 0.10
-    epsilon: 0.80
+    alpha: 0.13
+    epsilon: 0.46
     description: "MX面の平均α，平均ε"
   PY_average:
     name: "PY_average"
-    alpha: 0.10
-    epsilon: 0.80
+    alpha: 0.13
+    epsilon: 0.42
     description: "PY面の平均α，平均ε"
   MY_average:
     name: "MY_average"
-    alpha: 0.10
-    epsilon: 0.80
+    alpha: 0.13
+    epsilon: 0.43
     description: "MY面の平均α，平均ε"
   PZ_average:
     name: "PZ_average"
-    alpha: 0.10
-    epsilon: 0.80
+    alpha: 0.13
+    epsilon: 0.37
     description: "PZ面の平均α，平均ε"
   MZ_average:
     name: "MZ_average"
-    alpha: 0.10
-    epsilon: 0.80
+    alpha: 0.13
+    epsilon: 0.376
     description: "MZ面の平均α，平均ε"
 
 
