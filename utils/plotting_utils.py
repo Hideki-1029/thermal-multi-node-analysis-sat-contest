@@ -190,6 +190,10 @@ def plot_heat_balance(heat_input_records: List[HeatInputRecord], output_dir: str
 def plot_heat_input_by_surface(heat_input_records: List[HeatInputRecord], output_dir: str):
     """Plot and save heat input by surface"""
     surface_names = sorted(set(record.surface_name for record in heat_input_records))
+    # Body-aware labeling for IR
+    constants = load_constants()
+    body_name = constants.get('environment', {}).get('primary_body', 'earth')
+    ir_label = f"{body_name.capitalize()} IR Heat"
     
     for surface_name in surface_names:
         surface_records = [r for r in heat_input_records if r.surface_name == surface_name]
@@ -200,8 +204,8 @@ def plot_heat_input_by_surface(heat_input_records: List[HeatInputRecord], output
         plt.plot(times, [r.solar_heat for r in surface_records], label='Solar Heat', color='red', linestyle='-')
         # Albedo Heat: orange
         plt.plot(times, [r.albedo_heat for r in surface_records], label='Albedo Heat', color='orange', linestyle='-')
-        # Earth IR Heat: green
-        plt.plot(times, [r.earth_ir_heat for r in surface_records], label='Earth IR Heat', color='green', linestyle='-')
+        # Planet IR Heat: green (body-aware)
+        plt.plot(times, [r.earth_ir_heat for r in surface_records], label=ir_label, color='green', linestyle='-')
         # Interpanel Radiation: cyan
         plt.plot(times, [r.interpanel_radiation for r in surface_records], label='Interpanel Radiation', color='cyan', linestyle='-')
         # Internal Heat: purple dashed
@@ -269,9 +273,14 @@ def plot_orbit_visualization(
         filename: Output filename
     """
     
-    # Earth parameters
-    earth_radius = 6371.0  # Earth radius [km]
-    orbit_radius = earth_radius + altitude
+    # Primary body parameters
+    from .config_loader import load_constants
+    constants = load_constants()
+    env = constants.get('environment', {})
+    bodies = constants.get('bodies', {})
+    body_name = env.get('primary_body', 'earth')
+    body_radius = float(bodies.get(body_name, {}).get('radius_km', 6371.0))
+    orbit_radius = body_radius + altitude
     
     debug_flag = load_constants().get('debug', False)
     if debug_flag:
@@ -279,7 +288,8 @@ def plot_orbit_visualization(
         print(f"\n[1] Input Parameters")
         print(f"Beta angle: {beta_angle} degrees")
         print(f"Orbit radius: {orbit_radius} km")
-        print(f"Earth radius: {earth_radius} km")
+        print(f"Body: {body_name}")
+        print(f"Body radius: {body_radius} km")
     
     # 3D plot setup
     fig = plt.figure(figsize=(12, 8))
@@ -301,7 +311,7 @@ def plot_orbit_visualization(
     r_dot_s = r_vecs @ s_hat
     perp = r_vecs - np.outer(r_dot_s, s_hat)
     d_perp = np.linalg.norm(perp, axis=1)
-    eclipse_mask = (r_dot_s < 0) & (d_perp < earth_radius)
+    eclipse_mask = (r_dot_s < 0) & (d_perp < body_radius)
     
     if debug_flag:
         print(f"\n[2] Orbit Analysis")
@@ -317,7 +327,7 @@ def plot_orbit_visualization(
         print(f"Eclipse fraction: {np.sum(eclipse_mask)/len(eclipse_mask):.2%}")
     
     # Plot orbit
-    ax.plot(r_vecs[:, 0], r_vecs[:, 1], r_vecs[:, 2], 'r-', label='Orbit', linewidth=2)
+    ax.plot(r_vecs[:, 0], r_vecs[:, 1], r_vecs[:, 2], 'r-', label=f'Orbit around {body_name}', linewidth=2)
     
     # Plot eclipse region
     ax.plot(r_vecs[eclipse_mask, 0], r_vecs[eclipse_mask, 1], r_vecs[eclipse_mask, 2],
@@ -339,12 +349,12 @@ def plot_orbit_visualization(
               orbit_normal[2] * normal_length,
               color='green', arrow_length_ratio=0.2, label='Orbit Normal')
     
-    # Draw Earth
+    # Draw primary body
     u = np.linspace(0, 2 * np.pi, 100)
     v = np.linspace(0, np.pi, 100)
-    x = earth_radius * np.outer(np.cos(u), np.sin(v))
-    y = earth_radius * np.outer(np.sin(u), np.sin(v))
-    z = earth_radius * np.outer(np.ones(np.size(u)), np.cos(v))
+    x = body_radius * np.outer(np.cos(u), np.sin(v))
+    y = body_radius * np.outer(np.sin(u), np.sin(v))
+    z = body_radius * np.outer(np.ones(np.size(u)), np.cos(v))
     ax.plot_surface(x, y, z, color='blue', alpha=0.3)
     
     # Display information on plot
@@ -365,7 +375,7 @@ def plot_orbit_visualization(
     ax.set_xlabel('X [km]')
     ax.set_ylabel('Y [km]')
     ax.set_zlabel('Z [km]')
-    ax.set_title('Satellite Orbit Visualization')
+    ax.set_title(f'Satellite Orbit Visualization ({body_name})')
     
     # Equal axis scale
     max_range = orbit_radius * 1.2

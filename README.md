@@ -1,13 +1,13 @@
 # 多節点衛星熱解析プログラム
 
 このプログラムは、衛星の多節点熱解析を行うPythonスクリプトです。
-地球周回軌道・深宇宙探査の両方に対応し、非定常（時間発展）解析が可能です。
+周回軌道（orbit）・深宇宙探査（deep_space）の両方に対応し、非定常（時間発展）解析が可能です。中心天体（Earth/Moon）は設定またはCSV/CLIで切替できます。
 
 ## 主な機能
 
-- 地球周回軌道・深宇宙の**非定常熱解析**
+- 周回軌道（orbit）・深宇宙（deep_space）の**非定常熱解析**
 - ベータ角・軌道高度・太陽方向ベクトル等のパラメータ指定
-- アルベド・地球赤外の有効/無効切替（`settings/constants.yaml`）
+- アルベド・惑星赤外の有効/無効切替（`settings/constants.yaml`）
 - コンダクタンス行列による熱伝導計算（`settings/cij_matrix.csv`）
 - 各面の温度履歴・熱収支・入力のCSV/グラフ出力
 - ビューファクター行列・Rij行列のCSV出力
@@ -38,10 +38,10 @@ python batch_analysis.py create-template
 
 2. 作成された`analysis_config_template.csv`を編集して、実行したい解析条件を記述：
 ```csv
-mode,altitude,beta,sun_x,sun_y,sun_z,duration,num_orbits,temp_grid_interval,output_dir
-earth,500.0,60.0,,,40010.0,,5.0,output/earth_orbit_alt500.0_beta60.0
-earth,300.0,45.0,,,40010.0,,5.0,output/earth_orbit_alt300.0_beta45.0
-deep_space,,,,1.0,0.0,0.0,40010.0,,5.0,output/deep_space_sun_x1.0_y0.0_z0.0
+mode,body,altitude,beta,sun_x,sun_y,sun_z,duration,num_orbits,temp_grid_interval,output_dir
+orbit,moon,500.0,60.0,,,,40010.0,,5.0,output/moon_orbit_alt500.0_beta60.0
+orbit,earth,300.0,45.0,,,,40010.0,,5.0,output/earth_orbit_alt300.0_beta45.0
+deep_space,,, ,1.0,0.0,0.0,40010.0,,5.0,output/deep_space_sun_x1.0_y0.0_z0.0
 ```
 
 3. 設定ファイルを使って一括解析を実行：
@@ -50,7 +50,8 @@ python batch_analysis.py batch analysis_config_template.csv
 ```
 
 #### 設定ファイルの項目
-- `mode`: 解析モード（'earth' または 'deep_space'）
+- `mode`: 解析モード（`orbit` または `deep_space`。`orbit` は周回軌道解析）
+- `body`: 中心天体（`earth` または `moon`）。未指定時は `settings/constants.yaml` の `environment.primary_body` を使用
 - `altitude`: 軌道高度 [km]（地球周回軌道の場合のみ）
 - `beta`: ベータ角 [度]（地球周回軌道の場合のみ）
 - `sun_x`, `sun_y`, `sun_z`: 太陽方向ベクトル（深宇宙の場合のみ）
@@ -61,6 +62,11 @@ python batch_analysis.py batch analysis_config_template.csv
   - 小さい値を指定すると細かい温度変化が見やすくなる
   - 大きい値を指定すると全体的な温度傾向が把握しやすくなる
 - `output_dir`: 出力ディレクトリ
+
+優先順位（重要）:
+- CSV > CLI > settings/constants.yaml の順に適用されます。
+  - `batch_analysis.py` 利用時は CSV が最優先です。
+  - `--body` 指定時は `PRIMARY_BODY_OVERRIDE` として設定を一時上書きします。
 
 #### ログファイル
 - ファイル名：`analysis_log.log`
@@ -74,10 +80,10 @@ python batch_analysis.py batch analysis_config_template.csv
   - 解析を実行するたびに新しい結果が追加
   - 時系列での解析実行履歴を追跡可能
 
-### 地球周回軌道の非定常解析
+### 周回軌道の非定常解析（orbit）
 
 ```bash
-python multi-node_analysis.py --mode earth --altitude 600 --beta 0 --duration 40010 --output_dir output --temp-grid-interval 5.0
+python multi-node_analysis.py --mode orbit --body moon --altitude 600 --beta 60 --duration 40010 --output_dir output --temp-grid-interval 5.0
 ```
 - `--altitude`：軌道高度 [km]
 - `--beta`：ベータ角 [度]
@@ -85,6 +91,7 @@ python multi-node_analysis.py --mode earth --altitude 600 --beta 0 --duration 40
 - `--duration`：解析時間 [秒]（指定時はnum_orbitsより優先度低、両方指定時はnum_orbits優先）
 - `--output_dir`：出力ディレクトリ
 - `--temp-grid-interval`：温度プロファイルの等温線の間隔 [°C]（デフォルト: 5.0）
+備考: `--mode orbit` は内部的に `earth` と同じフローで処理され、`--body` で中心天体を切替できます。
 
 ### 深宇宙探査機の非定常解析
 
@@ -110,8 +117,8 @@ python multi-node_analysis.py --mode deep_space --sun_x 1 --sun_y 0 --sun_z 0 --
     - コンポーネントはパネルと異なる色で自動的に割り当て
     - 等温線の間隔はデフォルトで5°C
 - `heat_balance.png`：熱収支グラフ
-- `heat_input_by_surface.png`：面ごとの熱入力グラフ
-- `orbit_visualization.png`：軌道3D可視化（地球周回のみ）
+- `heat_input_by_surface.png`：面ごとの熱入力グラフ（IR凡例は中心天体名を反映）
+- `orbit_visualization.png`：軌道3D可視化（中心天体半径・蝕を反映、タイトルに天体名を表示）
 - `settings/`：解析に使用した設定ファイルのコピー
   - `constants.yaml`：物理定数、衛星寸法、内部発熱、軌道・解析パラメータ
   - `surface_properties.yaml`：各面の表面材・割合・光学特性
@@ -123,7 +130,9 @@ python multi-node_analysis.py --mode deep_space --sun_x 1 --sun_y 0 --sun_z 0 --
 
 ### `settings/constants.yaml`
 - 物理定数、衛星寸法、内部発熱、軌道・解析パラメータなどを定義
-- `enable_albedo`/`enable_earth_ir`でアルベド・地球赤外の有効/無効を切替
+- `environment.primary_body` で中心天体（`earth`/`moon`）を選択
+- `bodies.{earth,moon}` に天体ごとの半径・μ・アルベド・惑星IRを定義
+- `enable_albedo`/`enable_planet_ir` でアルベド・惑星赤外の有効/無効を切替
 - `enable_conductance`でコンダクタンス行列の有効/無効を切替
 
 ### `settings/surface_properties.yaml`

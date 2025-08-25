@@ -15,7 +15,8 @@ def create_analysis_config_template(output_file: str = 'analysis_config_template
         output_file (str): 出力ファイルのパス
     """
     template_df = pd.DataFrame({
-        'mode': ['earth'],  # earth または deep_space
+        'mode': ['orbit'],  # orbit または deep_space（orbit は周回軌道解析）
+        'body': [None],     # 中心天体（earth | moon）未指定なら設定のprimary_body
         'altitude': [500.0],  # 地球周回軌道の場合のみ使用 [km]
         'beta': [60.0],  # 地球周回軌道の場合のみ使用 [度]
         'sun_x': [None],  # 深宇宙の場合のみ使用
@@ -68,8 +69,9 @@ def write_analysis_log(log_file: str, config: Dict, status: str, error_msg: str 
     
     with open(log_file, 'a', encoding='utf-8') as f:
         f.write(f'\n=== 解析実行時刻: {timestamp} ===\n')
-        f.write(f'モード: {config["mode"]}\n')
-        if config["mode"] == "earth":
+        mode_str = str(config["mode"]).lower()
+        f.write(f'モード: {mode_str}\n')
+        if mode_str in ("earth", "orbit"):
             f.write(f'軌道高度: {config["altitude"]} km\n')
             f.write(f'ベータ角: {config["beta"]} 度\n')
         else:
@@ -98,8 +100,14 @@ def execute_analysis(config: Dict, log_file: str) -> bool:
     # コマンドライン引数の構築
     cmd = ['python', 'multi-node_analysis.py']
     
-    # モードに応じた引数の設定
-    cmd.extend(['--mode', config['mode']])
+    # モードに応じた引数の設定（orbit は earth と等価に扱う）
+    mode = str(config['mode']).lower()
+    if mode == 'orbit':
+        mode = 'earth'
+    cmd.extend(['--mode', mode])
+    # 中心天体が指定されていれば明示的に渡す
+    if 'body' in config and pd.notna(config.get('body')):
+        cmd.extend(['--body', str(config['body'])])
     
     if config['mode'] == 'earth':
         cmd.extend(['--altitude', str(config['altitude'])])
@@ -120,7 +128,8 @@ def execute_analysis(config: Dict, log_file: str) -> bool:
     
     try:
         # 解析の実行
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+        # NOTE: capturing large stdout/stderr can block the child process. Do not capture.
+        result = subprocess.run(cmd, check=True)
         write_analysis_log(log_file, config, 'success')
         print(f'解析が成功しました: {config["output_dir"]}')
         return True
